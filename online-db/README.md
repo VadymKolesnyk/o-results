@@ -15,7 +15,7 @@
   Консоль (`Orientir.Console`) або WPF (`Orientir.Desktop`) — обидва над спільним `Orientir.Core`.
 - **Читання** — браузер глядача (`anon`-ключ, лише SELECT завдяки RLS).
 - Глядач відкриває **пряме посилання** виду
-  `…/orientir-results/#/<id>/d<n>` — їх друкує publisher при старті.
+  `https://o-results.online/#/<id>/d<n>` — їх друкує publisher при старті.
 - Один фронт `web/` обслуговує **всі** змагання — перегенерація не потрібна.
 
 ---
@@ -70,16 +70,16 @@ dotnet run --project Orientir.Console   # альтернативна консо�
 При старті друкуються **готові посилання** на кожен день (+ «Сума», якщо `Standings`):
 ```
 [12:00:01] kyiv2025: змагання + 2 дн. зареєстровано
-    🔗 https://…/orientir-results/#/kyiv2025/d1
-    🔗 https://…/orientir-results/#/kyiv2025/d2
-    🔗 Сума: https://…/orientir-results/#/kyiv2025/sum
+    🔗 https://o-results.online/#/kyiv2025/d1
+    🔗 https://o-results.online/#/kyiv2025/d2
+    🔗 Сума: https://o-results.online/#/kyiv2025/sum
 [12:00:02] kyiv2025 день 1: результатів 598 (фініш 526, біжать 25)
 ```
 Ці URL і розсилаєш глядачам — на кожен день своє посилання.
 
-> **Формат лінка.** Канонічний — hash: `…/orientir-results/#/{event}/{d1|d2|sum}`.
+> **Формат лінка.** Канонічний — hash: `…/#/{event}/{d1|d2|sum}`.
 > Hash обрано тому, що GitHub Pages віддає статику: прямий перехід на справжній шлях
-> `…/orientir-results/<id>/d1` дав би 404, а з hash F5 і прямі лінки працюють без
+> `…/<id>/d1` дав би 404, а з hash F5 і прямі лінки працюють без
 > `404.html`. Старий query `?event=<id>&day=<n>` (зокрема `day=summ`) фронт ще читає
 > як запасний варіант — раніше роздані лінки не ламаються.
 
@@ -131,10 +131,13 @@ Pages, без гілки `gh-pages`).
    або repo-variables в Actions.
 2. **Одноразове налаштування** після першого мерджу: у репо → **Settings → Pages →
    Source = GitHub Actions**.
-3. Vite `base` = `/orientir-results/` (ім'я репо), тож сайт буде на
-   `https://<логін>.github.io/orientir-results/` — саме цей base вказуєш у publisher
-   (поле **«Публічний URL»**).
-4. Глядач відкриває `…/orientir-results/#/<id>/d<n>` (або `/sum`). Сторінка:
+3. Vite `base` = `/`: сайт віддається з кореня власного домену `https://o-results.online/`
+   (Settings → Pages → Custom domain; `web/public/CNAME` — копія в репо). Саме цю адресу
+   вказуєш у publisher (поле **«Публічний URL»**). Форк без власного домену живе на
+   `https://<логін>.github.io/o-results/` — тоді `base: '/o-results/'` і без `web/public/CNAME`.
+   Покрокова інструкція для власної копії разом з OrientPyx:
+   https://vadymkolesnyk.github.io/OrientPyx/race-day/online-site/
+4. Глядач відкриває `https://o-results.online/#/<id>/d<n>` (або `/sum`). Сторінка:
    - у шапці — назва змагання (`title`) і підзаголовок (`subtitle`);
    - перемикач днів будується автоматично з `event_days` (підписи «День 1 ·
      30 травня»), перемикання оновлює hash — посилання на день можна копіювати;

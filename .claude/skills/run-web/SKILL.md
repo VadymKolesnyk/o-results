@@ -15,13 +15,14 @@ npm run dev
 
 Vite prints a local URL (typically `http://localhost:5173`). The app reads live data from Supabase using the **anon** (read-only) key, with a public fallback in `web/src/lib/supabase.ts`, so no secrets are needed to run it.
 
-The route is driven by query params — open with an event and day to see real data, e.g.:
+The route lives in the URL hash — open with an event and day to see real data, e.g.:
 
 ```
-http://localhost:5173/orientir-results/?event=<id>&day=<n>
+http://localhost:5173/#/<id>/d<n>     # day n
+http://localhost:5173/#/<id>/sum      # all-days standings
 ```
 
-Note the `/orientir-results/` path segment: it comes from Vite `base` in `web/vite.config.ts` (matches the GitHub Pages subdirectory). The dev server serves under that base too.
+Vite `base` in `web/vite.config.ts` is `/`: the site is served from the root of the custom domain https://o-results.online/, so there is no path prefix (locally either). The old `?event=<id>&day=<n>` query still works as a fallback.
 
 To verify a production build instead of dev:
 

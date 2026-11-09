@@ -13,15 +13,15 @@ Pages після цієї міграції стає білд із `web/`.
 cd web
 npm install
 npm run dev
-# відкрити http://localhost:5173/orientir-results/#/<id>/d1
+# відкрити http://localhost:5173/#/<id>/d1
 ```
 
-> `base` у `vite.config.ts` = `/orientir-results/` (ім'я репо), тож і локально, і на
-> Pages URL містить цей префікс.
+> `base` у `vite.config.ts` = `/`: сайт віддається з кореня власного домену
+> `o-results.online`, тож ні локально, ні на сайті префікса шляху немає.
 >
 > **Маршрут** задається через hash: `#/{event}/{d1|d2|…|sum}`. Hash (а не звичайний
 > шлях) обрано свідомо — GitHub Pages віддає статику, тож прямий перехід на справжній
-> шлях `/orientir-results/<id>/d1` дав би 404. Із hash F5 і прямі лінки працюють без
+> шлях `/<id>/d1` дав би 404. Із hash F5 і прямі лінки працюють без
 > `404.html`. День — сегмент `dN` (`d1`, `d2`, …), залік — `sum`. Старий
 > `?event=<id>&day=<n>` (зокрема `day=summ`) ще читається як запасний варіант, щоб не
 > ламати раніше роздані лінки.
@@ -51,22 +51,29 @@ repo-variables в Actions. **service_role**-ключ сюди НЕ потрап�
 Після успішного деплою сайт буде на:
 
 ```
-https://vadymkolesnyk.github.io/orientir-results/#/<id>/d<n>     # день n
-https://vadymkolesnyk.github.io/orientir-results/#/<id>/sum      # залік
+https://o-results.online/#/<id>/d<n>     # день n
+https://o-results.online/#/<id>/sum      # залік
 ```
+
+Домен задано в **Settings → Pages → Custom domain** (`web/public/CNAME` — його копія в
+репо). Форк без власного домену живе на `https://<логін>.github.io/o-results/`: тоді
+у `vite.config.ts` потрібно `base: '/o-results/'`, а `web/public/CNAME` — видалити.
 
 ## Зв'язок із publisher (.NET)
 
-URL змінився (зник `/online/results.html`). У застосунку (Orientir Desktop/Console)
-онови поле **«Публічний URL»** на новий base:
+У publisher вкажи адресу сайту — поле **«Публічний URL»** в Orientir Desktop/Console або
+**«Публічний URL сайту глядача»** в OrientPyx:
 
 ```
-https://vadymkolesnyk.github.io/orientir-results/
+https://o-results.online/
 ```
 
 Це runtime-налаштування (зберігається в SQLite) — **код .NET міняти не треба**.
 
+Як розгорнути власну копію (Supabase + GitHub Pages) і підключити до неї OrientPyx —
+покрокова інструкція в документації OrientPyx: https://vadymkolesnyk.github.io/OrientPyx/race-day/online-site/
+
 > ⚠️ **Формат лінка змінився.** Якщо publisher формує посилання як
-> `…/orientir-results/?event=…&day=…`, воно ще працюватиме (фронт читає старий query
+> `…/?event=…&day=…`, воно ще працюватиме (фронт читає старий query
 > як запасний варіант), але новий канонічний формат — hash: `#/{event}/{d1|d2|sum}`.
 > Коли оновлюватимеш генерацію лінків у publisher, переходь на hash-формат.

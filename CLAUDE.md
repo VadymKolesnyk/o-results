@@ -9,7 +9,7 @@ Live results system for orienteering races. Pipeline: legacy "Ориентир" 
 ## Layout (monorepo)
 
 - **`Orientir/`** — the .NET 9 solution (`Orientir.sln`): `Orientir.Core` (all business logic, EF Core/SQLite), `Orientir.Console` (terminal UI), `Orientir.Desktop` (WPF GUI, **the primary app to run**). See **`Orientir/CLAUDE.md`** for backend detail before working in here.
-- **`web/`** — React + Vite + TypeScript + Tailwind spectator frontend. Auto-deployed to GitHub Pages via `.github/workflows/deploy-pages.yml` on every push to `master`. Vite `base` is `/orientir-results/`. Edit `web/` (not `online/`) for spectator-facing changes.
+- **`web/`** — React + Vite + TypeScript + Tailwind spectator frontend. Auto-deployed to GitHub Pages via `.github/workflows/deploy-pages.yml` on every push to `master`. Vite `base` is `/` — the site is served from the custom domain https://o-results.online/ (Settings → Pages → Custom domain; `web/public/CNAME` keeps a copy). The repo is `VadymKolesnyk/o-results` (renamed from `orientir-results`; GitHub redirects the old URL). Edit `web/` (not `online/`) for spectator-facing changes.
 - **`online/`** — legacy single-file static frontend + `schema.sql` (Supabase tables). Reference/backup only; no longer the Pages source.
 
 ## Build & run
