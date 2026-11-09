@@ -12,19 +12,45 @@ interface Props {
   showPts: boolean
 }
 
-// Порядок команд: як в особистій таблиці — фініш (за місцем) → без місця (за
-// часом) → на дистанції → зняті → не старт; за рівних — за номером команди.
+// Порядок команд (як у протоколі й на моніторі OrientPyx): фініш (за місцем) →
+// без місця (за часом) → на дистанції (більше етапів 1…k пройдено поспіль — вище,
+// далі за наростаючим часом після етапу k) → зняті → не старт; за рівних — за
+// номером команди.
 function cmpTeams(a: RelayTeamRow, b: RelayTeamRow): number {
   const sa = STATUS_ORDER[a.status] ?? 9
   const sb = STATUS_ORDER[b.status] ?? 9
   if (sa !== sb) return sa - sb
   if (a.status === 'finished' && a.rk && b.rk && a.rk !== b.rk) return a.rk - b.rk
+  if (a.status === 'running') {
+    const pa = legsDone(a)
+    const pb = legsDone(b)
+    if (pa.legs !== pb.legs) return pb.legs - pa.legs
+    if (pa.legs > 0 && pa.seconds !== pb.seconds) return pa.seconds - pb.seconds
+  }
   if (a.status === 'finished' || a.status === 'finished_pending' || a.status === 'dsq') {
     const ta = a.result_seconds ?? 1e9
     const tb = b.result_seconds ?? 1e9
     if (ta !== tb) return ta - tb
   }
   return a.num - b.num
+}
+
+// Скільки етапів від першого фінішували поспіль (OK, є наростаючий час) і
+// наростаючий час команди після останнього з них, у секундах.
+function legsDone(t: RelayTeamRow): { legs: number; seconds: number } {
+  let legs = 0
+  let seconds = 0
+  for (const l of [...(t.legs || [])].sort((x, y) => x.leg - y.leg)) {
+    if (l.status !== 'finished' || !l.cumulative) break
+    legs++
+    seconds = hmsToSeconds(l.cumulative)
+  }
+  return { legs, seconds }
+}
+
+// «hh:mm:ss» → секунди.
+function hmsToSeconds(s: string): number {
+  return s.split(':').reduce((acc, part) => acc * 60 + (Number(part) || 0), 0)
 }
 
 // Пошук: номер / назва / клуб / регіон команди, або ПІБ / номер будь-якого етапу.
