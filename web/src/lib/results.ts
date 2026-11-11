@@ -63,13 +63,14 @@ export function dayLabelShort(d: EventDay): string {
   return `День ${d.day}`
 }
 
-// Фільтр пошуку: ПІБ / команда / клуб / номер (lowercase substring).
+// Фільтр пошуку: ПІБ / команда / клуб / регіон / номер (lowercase substring).
 export function matchesQuery(r: ResultRow, q: string): boolean {
   if (!q) return true
   return (
     (r.full_name || '').toLowerCase().includes(q) ||
     (r.team || '').toLowerCase().includes(q) ||
     (r.club || '').toLowerCase().includes(q) ||
+    (r.region || '').toLowerCase().includes(q) ||
     String(r.bib || '').includes(q)
   )
 }
@@ -82,6 +83,7 @@ export interface SummaryPerson {
   name: string
   team: string
   club: string
+  region: string
   byDay: Record<number, ResultRow>
   total: number
 }
@@ -141,6 +143,7 @@ export function aggregateSummary(allResults: ResultRow[]): SummaryPerson[] {
         name: r.full_name || '',
         team: r.team || '',
         club: r.club || '',
+        region: r.region || '',
         byDay: {},
         total: 0,
       })
@@ -150,6 +153,7 @@ export function aggregateSummary(allResults: ResultRow[]): SummaryPerson[] {
     if (r.full_name) p.name = r.full_name
     if (r.team) p.team = r.team
     if (r.club) p.club = r.club
+    if (r.region) p.region = r.region
     p.total += Number(r.points) || 0 // бали є лише у фінішерів; решта — 0
   }
   return [...m.values()]
@@ -174,6 +178,7 @@ export function matchesPersonQuery(p: SummaryPerson, q: string): boolean {
     (p.name || '').toLowerCase().includes(q) ||
     (p.team || '').toLowerCase().includes(q) ||
     (p.club || '').toLowerCase().includes(q) ||
+    (p.region || '').toLowerCase().includes(q) ||
     String(p.bib).includes(q)
   )
 }

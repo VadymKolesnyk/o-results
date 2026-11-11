@@ -283,6 +283,8 @@ export function App() {
         activeGrp={activeGrp}
         query={query}
         showPts={showPts}
+        cfg={displayCfg}
+        showAll={showAllCols}
       />
     )
   } else {

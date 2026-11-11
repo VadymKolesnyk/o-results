@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { sb } from '../lib/supabase'
 import { groupNames } from '../lib/results'
+import { wantsExtra } from '../lib/columns'
 import { FAV_GRP } from '../lib/favorites'
 import { RES_COLS, RES_COLS_FAV, SYNC_COLS, GRP_COLS, RELAY_COLS } from '../types'
 import type {
@@ -19,6 +20,9 @@ import type {
 const STALE_LIMIT = 4 // скільки опитувань поспіль без змін → офлайн
 const STALE_MS = 5 * 60 * 1000 // остання зміна давніша за 5 хв → офлайн одразу
 const POLL_MS = 10000
+
+// Колонки запиту до results: з extra (значення додаткових колонок), коли треба.
+const withExtra = (cols: string, extra: boolean) => (extra ? `${cols},extra` : cols)
 
 interface Args {
   eventId: string
@@ -77,6 +81,23 @@ export function useLiveResults(args: Args) {
   const staleCountRef = useRef(0)
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
+
+  // results.extra тягнемо лише коли конфіг показує додаткові колонки (вмикає
+  // load() за display_config). Проєкт, створений до цієї колонки, відповідає на
+  // такий запит помилкою — тоді повторюємо без неї й до наступного load() не просимо.
+  const extraRef = useRef(false)
+  const queryResults = useCallback(
+    async (build: (extra: boolean) => PromiseLike<{ data: unknown; error: unknown }>) => {
+      const extra = extraRef.current
+      let r = await build(extra)
+      if (r.error && extra) {
+        extraRef.current = false
+        r = await build(false)
+      }
+      return r
+    },
+    [],
+  )
 
   // Дзеркало вже завантажених рядків — щоб фоновий syncResults міг накласти
   // лише змінні поля на наявні (full_name/team/club/start_time лишаються).
@@ -185,18 +206,20 @@ export function useLiveResults(args: Args) {
     async (sum: boolean): Promise<ResultRow[]> => {
       const { eventId, day, favBibs } = argsRef.current
       if (!favBibs.length) return []
-      let q = sb
-        .from('results')
-        .select(RES_COLS_FAV)
-        .eq('event', eventId)
-        .in('bib', favBibs)
-      if (!sum) q = q.eq('day', day)
-      const r = await q
-      // RES_COLS_FAV — динамічний рядок, тож supabase не виводить тип рядка;
+      const r = await queryResults((extra) => {
+        let q = sb
+          .from('results')
+          .select(withExtra(RES_COLS_FAV, extra))
+          .eq('event', eventId)
+          .in('bib', favBibs)
+        if (!sum) q = q.eq('day', day)
+        return q
+      })
+      // Колонки — динамічний рядок, тож supabase не виводить тип рядка;
       // приводимо через unknown (дані відповідають ResultRow + grp).
       return r.error ? [] : ((r.data as unknown as ResultRow[]) || [])
     },
-    [],
+    [queryResults],
   )
 
   // Результати однієї групи поточного дня (лише потрібні колонки).
@@ -205,15 +228,17 @@ export function useLiveResults(args: Args) {
     async (grp: string): Promise<ResultRow[]> => {
       if (grp === FAV_GRP) return fetchFavorites(false)
       const { eventId, day } = argsRef.current
-      const r = await sb
-        .from('results')
-        .select(RES_COLS)
-        .eq('event', eventId)
-        .eq('day', day)
-        .eq('grp', grp)
-      return r.error ? [] : ((r.data as ResultRow[]) || [])
+      const r = await queryResults((extra) =>
+        sb
+          .from('results')
+          .select(withExtra(RES_COLS, extra))
+          .eq('event', eventId)
+          .eq('day', day)
+          .eq('grp', grp),
+      )
+      return r.error ? [] : ((r.data as unknown as ResultRow[]) || [])
     },
-    [fetchFavorites],
+    [fetchFavorites, queryResults],
   )
 
   // Команди групи-естафети поточного дня. Таблиці relay_teams може не бути
@@ -261,6 +286,7 @@ export function useLiveResults(args: Args) {
     const groups = (rGrp.data as GroupRow[]) || []
     const event = (rEv.data as EventRow) || null
     const eventDays = (rDays.data as EventDay[]) || []
+    extraRef.current = wantsExtra(event?.display_config)
 
     // Залік доступний лише коли увімкнено standings — інакше скидаємо режим.
     let effSum = sumMode
@@ -282,12 +308,10 @@ export function useLiveResults(args: Args) {
       results = allResults.filter((r) => r.day === day)
     } else if (effSum) {
       // Режим «Сума»: тягнемо лише активну групу, але за ВСІ дні.
-      const rAll = await sb
-        .from('results')
-        .select(RES_COLS)
-        .eq('event', eventId)
-        .eq('grp', grp)
-      allResults = rAll.error ? [] : ((rAll.data as ResultRow[]) || [])
+      const rAll = await queryResults((extra) =>
+        sb.from('results').select(withExtra(RES_COLS, extra)).eq('event', eventId).eq('grp', grp),
+      )
+      allResults = rAll.error ? [] : ((rAll.data as unknown as ResultRow[]) || [])
       results = allResults.filter((r) => r.day === day)
     } else {
       // Звичайна група або «Обрані» за день (fetchGroup розрізняє FAV_GRP).
@@ -309,7 +333,7 @@ export function useLiveResults(args: Args) {
       loading: false,
       error: null,
     })
-  }, [checkStale, fetchGroup, fetchFavorites, fetchTeams])
+  }, [checkStale, fetchGroup, fetchFavorites, fetchTeams, queryResults])
 
   // Фонове оновлення (polling/realtime): тягнемо ЛИШЕ змінні поля (SYNC_COLS)
   // активної групи й накладаємо їх на вже завантажені рядки — сталі поля
@@ -334,18 +358,22 @@ export function useLiveResults(args: Args) {
     // Колонки повного дозапиту: для «Обраних» тягнемо ще й grp.
     const fullCols = fav ? RES_COLS_FAV : RES_COLS
 
-    // 1) Тягнемо лише змінні поля. У sum-режимі — за всі дні, інакше — поточний.
-    // Для «Обраних» — без grp-фільтра, за списком bib; решта — за grp.
-    let q = sb.from('results').select(SYNC_COLS).eq('event', eventId)
-    q = fav ? q.in('bib', favBibs) : q.eq('grp', grp)
-    if (!effSum) q = q.eq('day', day)
+    // 1) Тягнемо лише змінні поля (з extra, коли конфіг показує додаткові
+    // колонки: їхні значення теж змінюються). У sum-режимі — за всі дні, інакше —
+    // поточний. Для «Обраних» — без grp-фільтра, за списком bib; решта — за grp.
+    const syncQuery = (extra: boolean) => {
+      let q = sb.from('results').select(withExtra(SYNC_COLS, extra)).eq('event', eventId)
+      q = fav ? q.in('bib', favBibs) : q.eq('grp', grp)
+      if (!effSum) q = q.eq('day', day)
+      return q
+    }
     // Команди естафети (лише день, не «Обрані») — цілими рядками: їх мало.
     const [rSync, teams] = await Promise.all([
-      q,
+      queryResults(syncQuery),
       !effSum && !fav ? fetchTeams(grp) : Promise.resolve<RelayTeamRow[]>([]),
     ])
     if (rSync.error) return // тихо: фоновий sync не показує помилок
-    const syncRows = (rSync.data as SyncRow[]) || []
+    const syncRows = (rSync.data as unknown as SyncRow[]) || []
 
     // 2) Індекс наявних повних рядків за ключем (bib,day).
     const prevFull = effSum
@@ -366,14 +394,16 @@ export function useLiveResults(args: Args) {
     // 4) Fallback: для нових учасників один повний запит саме по їхніх bib.
     if (missing.length) {
       const bibs = [...new Set(missing.map((m) => m.bib))]
-      let fq = sb
-        .from('results')
-        .select(fullCols)
-        .eq('event', eventId)
-        .in('bib', bibs)
-      if (!fav) fq = fq.eq('grp', grp)
-      if (!effSum) fq = fq.eq('day', day)
-      const rFull = await fq
+      const rFull = await queryResults((extra) => {
+        let fq = sb
+          .from('results')
+          .select(withExtra(fullCols, extra))
+          .eq('event', eventId)
+          .in('bib', bibs)
+        if (!fav) fq = fq.eq('grp', grp)
+        if (!effSum) fq = fq.eq('day', day)
+        return fq
+      })
       // fullCols — динамічний рядок (RES_COLS/RES_COLS_FAV), тип рядка не
       // виводиться; приводимо через unknown.
       const fullRows = rFull.error
@@ -394,7 +424,7 @@ export function useLiveResults(args: Args) {
       teams,
       offline: offlineRef.current,
     }))
-  }, [checkStale, fetchTeams])
+  }, [checkStale, fetchTeams, queryResults])
 
   // Перемикання групи: дотягуємо результати лише цієї групи, потім рендеримо.
   const switchGroup = useCallback(
@@ -411,12 +441,14 @@ export function useLiveResults(args: Args) {
           grp === FAV_GRP
             ? await fetchFavorites(true)
             : await (async () => {
-                const r = await sb
-                  .from('results')
-                  .select(RES_COLS)
-                  .eq('event', eventId)
-                  .eq('grp', grp)
-                return r.error ? [] : ((r.data as ResultRow[]) || [])
+                const r = await queryResults((extra) =>
+                  sb
+                    .from('results')
+                    .select(withExtra(RES_COLS, extra))
+                    .eq('event', eventId)
+                    .eq('grp', grp),
+                )
+                return r.error ? [] : ((r.data as unknown as ResultRow[]) || [])
               })()
         setState((s) => ({
           ...s,
@@ -432,7 +464,7 @@ export function useLiveResults(args: Args) {
         setState((s) => ({ ...s, results, allResults: [], teams, loading: false }))
       }
     },
-    [fetchGroup, fetchFavorites, fetchTeams],
+    [fetchGroup, fetchFavorites, fetchTeams, queryResults],
   )
 
   // Ручне перепідключення (клік по «офлайн»): вмикаємо live назад, скидаємо

@@ -21,12 +21,13 @@ export const STATUS_ORDER: Record<string, number> = {
 };
 
 // Тягнемо лише ті колонки, що реально показує/використовує сторінка (не *),
-// щоб зменшити трафік. Пропущені: finish_time, region, birth, qual.
+// щоб зменшити трафік. Пропущений: finish_time. extra (додаткові колонки)
+// дописуємо до запиту лише коли конфіг їх показує (див. useLiveResults).
 // grp не тягнемо: кожен запит до results фіксує .eq('grp', …), тож значення
 // в усіх рядках однакове й відоме заздалегідь. day лишаємо — у режимі «Сума»
 // тягнемо групу за ВСІ дні й розрізняємо рядки саме за day.
 export const RES_COLS =
-  'bib,day,rk,full_name,team,club,status,reason,start_time,result_time,result_seconds,points,birth,qual,updated_at';
+  'bib,day,rk,full_name,team,club,region,status,reason,start_time,result_time,result_seconds,points,birth,qual,updated_at';
 
 // Для виду «Обрані» тягнемо ще й grp — учасники зібрані з різних груп, тож треба
 // показати, з якої кожен (звичайні запити grp не тягнуть навмисно — він сталий
@@ -52,6 +53,7 @@ export type SyncRow = Pick<
   | 'result_seconds'
   | 'points'
   | 'updated_at'
+  | 'extra'
 >;
 
 // ord не тягнемо: вкладки груп сортуються за алфавітом (groupNames), не за ord.
@@ -72,6 +74,10 @@ export interface ColumnConfig {
   order: number;
   lg: boolean; // показувати на великому екрані
   sm: boolean; // показувати на малому екрані
+  // Лише в додаткової колонки OrientPyx (колонка плагіна «weighted.k» чи
+  // додаткове поле учасника «field.gender»): її підпис. Значення — у
+  // results.extra / legs[].extra за key.
+  label?: string;
 }
 
 // Повний конфіг відображення (дзеркало DisplayConfig у .NET / events.display_config).
@@ -85,11 +91,11 @@ export interface DisplayConfig {
   columns: ColumnConfig[];
 }
 
-// Типовий конфіг — 1:1 із колишнім жорстко зашитим layout'ом (коли
-// display_config === null). Мусить 1:1 збігатися з DisplayConfig.Default() у .NET.
-// За замовчуванням: розділення «Результат»/«Статус» на великому екрані; gap одразу
-// після result_time; № / старт / клуб / відставання / статус — лише на великому;
-// birth/qual/бали — вимкнені.
+// Типовий конфіг (коли display_config === null). Мусить 1:1 збігатися з
+// OnlineDisplayConfig.Default у .NET. За замовчуванням: розділення
+// «Результат»/«Статус» на великому екрані; gap одразу після result_time;
+// № / старт / клуб / відставання / статус — лише на великому; «Наростаючий»
+// (естафета) — на обох; команда/birth/qual/бали — вимкнені.
 export const DEFAULT_DISPLAY_CONFIG: DisplayConfig = {
   version: 1,
   points: false,
@@ -102,13 +108,15 @@ export const DEFAULT_DISPLAY_CONFIG: DisplayConfig = {
     { key: 'bib', order: 2, lg: true, sm: false },
     { key: 'birth', order: 3, lg: false, sm: false },
     { key: 'qual', order: 4, lg: false, sm: false },
-    { key: 'team', order: 5, lg: true, sm: true },
+    { key: 'team', order: 5, lg: false, sm: false },
     { key: 'club', order: 6, lg: true, sm: false },
-    { key: 'start_time', order: 7, lg: true, sm: false },
-    { key: 'result_time', order: 8, lg: true, sm: true },
-    { key: 'gap', order: 9, lg: true, sm: false },
-    { key: 'status', order: 10, lg: true, sm: false },
-    { key: 'points', order: 11, lg: true, sm: false },
+    { key: 'region', order: 7, lg: true, sm: true },
+    { key: 'start_time', order: 8, lg: true, sm: false },
+    { key: 'result_time', order: 9, lg: true, sm: true },
+    { key: 'gap', order: 10, lg: true, sm: false },
+    { key: 'cumulative', order: 11, lg: true, sm: true },
+    { key: 'status', order: 12, lg: true, sm: false },
+    { key: 'points', order: 13, lg: true, sm: false },
   ],
 };
 
@@ -129,8 +137,9 @@ export interface ResultRow {
   day: number;
   rk: number | null;
   full_name: string | null;
-  team: string | null;
+  team: string | null; // команда (рогейн); порожньо в особистих
   club: string | null;
+  region: string | null;
   status: Status;
   reason: string | null;
   start_time: string | null;
@@ -140,6 +149,9 @@ export interface ResultRow {
   birth: string | null; // рік народження (GR)
   qual: string | null; // розряд (KVAL)
   updated_at: string;
+  // Значення додаткових колонок (плагінів, додаткових полів) за key; тягнемо
+  // лише коли конфіг показує хоч одну (інакше undefined).
+  extra?: Record<string, string> | null;
   // Назва групи. Тягнемо лише для виду «Обрані» (RES_COLS_FAV); інакше undefined.
   grp?: string | null;
 }
@@ -158,13 +170,21 @@ export interface RelayLeg {
   bib: string // «100.2»
   full_name: string | null // null — етап без бігуна
   birth: string | null
+  // Розряд, клуб, регіон бігуна і старт етапу. Старіший OrientPyx їх не шле.
+  qual?: string | null
+  club?: string | null
+  region?: string | null
+  start_time?: string | null
   course: string | null // призначена дистанція етапу (null — одна на групу)
-  leg_time: string | null // фактичний час етапу
-  cumulative: string | null // наростаючий (скоригований) час команди
+  leg_time: string | null // «Час» — чистий час етапу (фініш − старт етапу)
+  // «Результат» — зарахований час етапу (зважена естафета: T·K); старіший
+  // OrientPyx його не шле — тоді він дорівнює leg_time.
+  result_time?: string | null
+  cumulative: string | null // наростаючий (зарахований) час команди
   status: LegStatus
   reason: string | null
   restarted: boolean
-  extra: Record<string, string> | null // значення колонок плагіна за key
+  extra: Record<string, string> | null // значення додаткових колонок за key
 }
 
 export interface RelayColumn {

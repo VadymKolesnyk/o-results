@@ -187,8 +187,8 @@ table.relay .tag {
   background: #eef0fb; color: #3a3f63; font-size: 10px; font-weight: 700; white-space: nowrap;
 }
 table.relay .oc { color: #5d6780; font-size: 11px; font-weight: 800; white-space: nowrap; }
-table.relay .col-num { white-space: nowrap; width: 56px; }
-table.relay .col-cum { white-space: nowrap; }
+table.relay .col-bib { white-space: nowrap; width: 56px; }
+table.relay .col-cumulative, table.relay .col-start_time { white-space: nowrap; }
 
 /* Таблиця може горизонтально скролитись, якщо все одно не влазить. */
 .tbl-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -232,9 +232,8 @@ thead th { position: sticky; top: 0; z-index: 1; }
   input.q { margin-left: 0; max-width: none; flex: 1 1 100%; }
   .show-all-btn { display: inline-block; }
   .upd { text-align: left; }
-  table.relay .col-cum, table.relay .pts { display: none; }
   table.relay .leg-bib { padding-left: 8px; }
-  table.relay .col-num { width: auto; }
+  table.relay .col-bib { width: auto; }
 }
 
 /* --- Дуже вузький / невисокий вертикальний екран (до 380px) ---

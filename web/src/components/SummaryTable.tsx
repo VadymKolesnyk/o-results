@@ -115,7 +115,7 @@ export function SummaryTable({
                   </td>
                   <td>{p.name || ''}</td>
                   <td className="col-bib">{p.bib || ''}</td>
-                  <td className="col-detail">{p.team || ''}</td>
+                  <td className="col-detail">{p.region || ''}</td>
                   <td className="col-club">{p.club || ''}</td>
                   {days.map((d) => {
                     const r = p.byDay[d]

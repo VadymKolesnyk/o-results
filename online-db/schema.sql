@@ -83,6 +83,11 @@ create table public.results (
   status         text not null default 'dns'
                  check (status in ('finished','finished_pending','running','dsq','dnf','dns')),
 
+  -- Значення додаткових колонок OrientPyx (колонки плагінів, додаткові поля
+  -- учасника) за ключем: {"weighted.k": "0.95", "field.gender": "Ч"}. Які
+  -- показувати й з яким підписом — events.display_config.columns[].label.
+  extra          jsonb,
+
   updated_at     timestamptz not null default now(),
 
   primary key (event, bib, day)
@@ -113,8 +118,9 @@ create table public.relay_teams (
   reason             text,             -- MP / OVT / DNF / DSQ при status = dsq
   out_of_competition boolean,          -- «П/К»
   restarted          boolean,          -- команда з перезапуском
-  columns            jsonb,            -- [{key,label}] колонки плагіна в legs[].extra
-  legs               jsonb,            -- [{leg,bib,full_name,birth,course,leg_time,cumulative,status,reason,restarted,extra}]
+  columns            jsonb,            -- [{key,label}] колонки плагіна в legs[].extra (для старішого сайту)
+  legs               jsonb,            -- [{leg,bib,full_name,birth,qual,club,region,course,start_time,
+                                       --   leg_time,result_time,cumulative,status,reason,restarted,extra}]
   updated_at         text,
   primary key (event, day, num)
 );
@@ -144,6 +150,7 @@ create policy "read relay_teams" on public.relay_teams for select to anon using 
 --    alter table public.events  add column if not exists standings boolean not null default false;
 --    alter table public.events  add column if not exists points boolean not null default false;
 --    alter table public.events  add column if not exists display_config jsonb;
+--    alter table public.results add column if not exists extra jsonb;
 --
 --  Естафети (OrientPyx) на вже наявній БД — виконай окремо блок
 --  «create table public.relay_teams …» + індекс вище, а потім:

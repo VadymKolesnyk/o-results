@@ -1,7 +1,8 @@
 import { cmp, fmtGap, fmtPts, matchesQuery } from '../lib/results'
+import { isExtra, respClass, screenColumns } from '../lib/columns'
 import { StarButton } from './StarButton'
 import { DEFAULT_DISPLAY_CONFIG } from '../types'
-import type { DisplayConfig, GroupRow, ResultRow } from '../types'
+import type { ColumnConfig, DisplayConfig, GroupRow, ResultRow } from '../types'
 
 const MEDAL = ['', 'gold', 'silver', 'bronze']
 
@@ -44,7 +45,8 @@ function statusText(r: ResultRow): React.ReactNode {
   return ''
 }
 
-// Колонка «Результат».
+// Колонка «Результат» — зарахований час (зі штрафом / коефіцієнтом, якщо вид
+// змагань його змінює; чистий час, коли треба, — окремою колонкою плагіна).
 //  • finished — час жирним (.time);
 //  • finished_pending — час жирним + «(обробка)»;
 //  • нефінішер (running/dsq/dns) — якщо в нього вже є час, показуємо його
@@ -102,8 +104,9 @@ const COLS: Record<string, ColMeta> = {
   },
   full_name: { header: { full: "Прізвище, ім'я" }, cell: ({ r }) => r.full_name || '' },
   bib: { header: { full: '№' }, cell: ({ r }) => r.bib || '' },
-  team: { header: { full: 'Регіон' }, cell: ({ r }) => r.team || '' },
+  team: { header: { full: 'Команда' }, cell: ({ r }) => r.team || '' },
   club: { header: { full: 'Клуб' }, cell: ({ r }) => r.club || '' },
+  region: { header: { full: 'Регіон' }, cell: ({ r }) => r.region || '' },
   start_time: {
     header: { full: 'Старт' },
     cell: ({ r }) => (
@@ -112,7 +115,7 @@ const COLS: Record<string, ColMeta> = {
       </span>
     ),
   },
-  result_time: { header: { full: 'Час' }, cell: timeCell },
+  result_time: { header: { full: 'Результат', short: 'Рез.' }, cell: timeCell },
   status: { header: { full: 'Статус' }, cell: statusCell },
   gap: { header: { full: 'Відставання', short: 'Відст.' }, cls: 'time', cell: gapCell },
   points: {
@@ -124,12 +127,10 @@ const COLS: Record<string, ColMeta> = {
   qual: { header: { full: 'Розряд' }, cell: ({ r }) => r.qual || '' },
 }
 
-// Клас адаптивності: ховаємо колонку на тому екрані, де lg/sm = false.
-function respClass(lg: boolean, sm: boolean): string {
-  const c: string[] = []
-  if (!lg) c.push('hide-lg')
-  if (!sm) c.push('hide-sm')
-  return c.join(' ')
+// Додаткова колонка (плагіна / додаткового поля): підпис із конфігу, значення
+// з results.extra.
+function extraMeta(c: ColumnConfig): ColMeta {
+  return { header: { full: c.label || c.key }, cell: ({ r }) => r.extra?.[c.key] || '' }
 }
 
 export function ResultsTable({
@@ -179,19 +180,16 @@ export function ResultsTable({
     return min == null || r.result_seconds < min ? r.result_seconds : min
   }, null)
 
-  // Активні колонки: за порядком, лише наявні в реєстрі. У режимі «Всі колонки»
-  // малий екран дублює великий (sm := lg). Колонку «Статус/DSQ» показуємо лише
-  // де ввімкнено розділення (lg→separateLg, sm→separateSm). points — лише showPts.
-  const cols = [...conf.columns]
-    .sort((a, b) => a.order - b.order)
-    .map((c) => (showAll ? { ...c, sm: c.lg } : c))
-    .map((c) =>
-      c.key === 'status'
-        ? { ...c, lg: c.lg && separateLg, sm: c.sm && separateSm }
-        : c,
-    )
-    .filter((c) => COLS[c.key] && (c.lg || c.sm))
+  // Активні колонки: за порядком, лише відомі (вбудовані з реєстру або
+  // додаткові з підписом). У режимі «Всі колонки» малий екран дублює великий
+  // (sm := lg). Колонку «Статус/DSQ» показуємо лише де ввімкнено розділення.
+  // points — лише showPts. Додаткову колонку без жодного значення в групі
+  // (інший день / інший вид змагань) не показуємо.
+  const cols = screenColumns(conf, showAll, separateLg, separateSm)
     .filter((c) => (c.key === 'points' ? showPts : true))
+    .filter((c) => !isExtra(c) || list.some((r) => r.extra?.[c.key]))
+    .map((c) => ({ ...c, m: COLS[c.key] ?? (isExtra(c) ? extraMeta(c) : undefined) }))
+    .filter((c): c is ColumnConfig & { m: ColMeta } => !!c.m)
 
   const g = groups.find((x) => x.name === activeGrp)
   const fin = list.filter(
@@ -221,7 +219,7 @@ export function ResultsTable({
             <tr>
               <th className="col-star" aria-label="Обране"></th>
               {cols.map((c) => {
-                const m = COLS[c.key]
+                const m = c.m
                 const cls = `col-${c.key} ${m.cls ?? ''} ${respClass(c.lg, c.sm)}`.trim()
                 return (
                   <th key={c.key} className={cls}>
@@ -248,7 +246,7 @@ export function ResultsTable({
                     <StarButton active={fav} onToggle={() => onToggleFav(r.bib)} />
                   </td>
                   {cols.map((c) => {
-                    const m = COLS[c.key]
+                    const m = c.m
                     // pts-клітинка має модифікатор win для 100 балів — як раніше.
                     const extra =
                       c.key === 'points' && r.points === 100 ? ' win' : ''
