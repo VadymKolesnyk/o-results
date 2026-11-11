@@ -55,7 +55,7 @@ create table public.groups (
 -- ---------------------------------------------------------------------
 create table public.results (
   event          text not null,
-  bib            int  not null,        -- NOMER
+  bib            int  not null,        -- NOMER; < 0 — учасник без номера (сталий ключ OrientPyx, не показується)
   day            int  not null default 1,
 
   grp            text not null,        -- GRUP ("Ч18")

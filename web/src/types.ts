@@ -133,7 +133,7 @@ export interface GroupRow {
 }
 
 export interface ResultRow {
-  bib: number;
+  bib: number; // < 0 — учасник без стартового номера (ключ OrientPyx); показувати через fmtBib
   day: number;
   rk: number | null;
   full_name: string | null;

@@ -1,4 +1,4 @@
-import { fmtPts, matchesQuery } from '../lib/results'
+import { fmtBib, fmtPts, matchesQuery } from '../lib/results'
 import { StarButton } from './StarButton'
 import type { ResultRow } from '../types'
 
@@ -119,7 +119,7 @@ export function FavoritesList({
                     />
                   </td>
                   <td>{r.full_name}</td>
-                  <td className="col-bib">{r.bib || ''}</td>
+                  <td className="col-bib">{fmtBib(r.bib)}</td>
                   <td>
                     {r.grp ? (
                       <a

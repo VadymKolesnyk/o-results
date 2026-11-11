@@ -2,6 +2,7 @@ import { Fragment } from 'react'
 import {
   aggregateSummary,
   compareSummary,
+  fmtBib,
   fmtPts,
   matchesPersonQuery,
   summaryDays,
@@ -114,7 +115,7 @@ export function SummaryTable({
                     <span className={medal}>{rank}</span>
                   </td>
                   <td>{p.name || ''}</td>
-                  <td className="col-bib">{p.bib || ''}</td>
+                  <td className="col-bib">{fmtBib(p.bib)}</td>
                   <td className="col-detail">{p.region || ''}</td>
                   <td className="col-club">{p.club || ''}</td>
                   {days.map((d) => {

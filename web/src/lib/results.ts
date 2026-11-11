@@ -4,6 +4,12 @@
 import { STATUS_ORDER } from '../types'
 import type { EventDay, GroupRow, ResultRow } from '../types'
 
+// Номер для показу. Учасника без стартового номера OrientPyx публікує під від'ємним
+// bib (сталий ключ із його id) — такий номер не показуємо і не шукаємо.
+export function fmtBib(bib: number | null | undefined): string {
+  return bib != null && bib > 0 ? String(bib) : ''
+}
+
 // Бали завжди з 2 знаками після коми: 100.00, 87.30, 95.42.
 export function fmtPts(p: number | null | undefined): string {
   const n = Number(p)
@@ -71,7 +77,7 @@ export function matchesQuery(r: ResultRow, q: string): boolean {
     (r.team || '').toLowerCase().includes(q) ||
     (r.club || '').toLowerCase().includes(q) ||
     (r.region || '').toLowerCase().includes(q) ||
-    String(r.bib || '').includes(q)
+    fmtBib(r.bib).includes(q)
   )
 }
 
@@ -179,6 +185,6 @@ export function matchesPersonQuery(p: SummaryPerson, q: string): boolean {
     (p.team || '').toLowerCase().includes(q) ||
     (p.club || '').toLowerCase().includes(q) ||
     (p.region || '').toLowerCase().includes(q) ||
-    String(p.bib).includes(q)
+    fmtBib(p.bib).includes(q)
   )
 }

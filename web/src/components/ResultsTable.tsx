@@ -1,4 +1,4 @@
-import { cmp, fmtGap, fmtPts, matchesQuery } from '../lib/results'
+import { cmp, fmtBib, fmtGap, fmtPts, matchesQuery } from '../lib/results'
 import { isExtra, respClass, screenColumns } from '../lib/columns'
 import { StarButton } from './StarButton'
 import { DEFAULT_DISPLAY_CONFIG } from '../types'
@@ -103,7 +103,7 @@ const COLS: Record<string, ColMeta> = {
       ),
   },
   full_name: { header: { full: "Прізвище, ім'я" }, cell: ({ r }) => r.full_name || '' },
-  bib: { header: { full: '№' }, cell: ({ r }) => r.bib || '' },
+  bib: { header: { full: '№' }, cell: ({ r }) => fmtBib(r.bib) },
   team: { header: { full: 'Команда' }, cell: ({ r }) => r.team || '' },
   club: { header: { full: 'Клуб' }, cell: ({ r }) => r.club || '' },
   region: { header: { full: 'Регіон' }, cell: ({ r }) => r.region || '' },
